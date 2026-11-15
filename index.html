@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Friday Money">
+<meta name="theme-color" content="#0E6656">
+<title>Friday Money Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one working column for the Friday checklist, a sticky "what to do next" panel pinned top-right (top on phones). */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --surface-2:#F6F8F7; --ink:#13211D; --muted:#5A6A65; --line:#D8E0DD;
+  --accent:#0E6656; --accent-ink:#FFFFFF; --accent-soft:#DCEEE8;
+  --warn:#A34E07; --warn-soft:#FBEBD8; --bad:#B3261E; --bad-soft:#FBE4E2; --good:#1D7339; --good-soft:#E1F2E5;
+  --seg-paid:#2E5B88; --seg-due:#8FB0D3; --seg-hold:#7D5FB5; --seg-capx:#C47D22; --seg-fund:#0E8A6C; --seg-left:#C9D3CF;
+  --display:"Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --surface:#16201D; --surface-2:#1B2723; --ink:#E6EEEB; --muted:#9AAAA4; --line:#2A3833;
+  --accent:#43B89F; --accent-ink:#06231C; --accent-soft:#16352E;
+  --warn:#F0A55C; --warn-soft:#3A2A16; --bad:#F2867E; --bad-soft:#3B1D1B; --good:#71CF8E; --good-soft:#173322;
+  --seg-paid:#6B9BD0; --seg-due:#36506D; --seg-hold:#A88BE0; --seg-capx:#E2A24F; --seg-fund:#3FC39E; --seg-left:#34433E;
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --surface:#16201D; --surface-2:#1B2723; --ink:#E6EEEB; --muted:#9AAAA4; --line:#2A3833;
+  --accent:#43B89F; --accent-ink:#06231C; --accent-soft:#16352E;
+  --warn:#F0A55C; --warn-soft:#3A2A16; --bad:#F2867E; --bad-soft:#3B1D1B; --good:#71CF8E; --good-soft:#173322;
+  --seg-paid:#6B9BD0; --seg-due:#36506D; --seg-hold:#A88BE0; --seg-capx:#E2A24F; --seg-fund:#3FC39E; --seg-left:#34433E;
+  color-scheme:dark;}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+body{margin:0;font-size:14px;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1160px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:1.65rem}
+h2{font-size:1.15rem}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input{font:inherit;color:var(--ink)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+.tab{border:0;background:transparent;color:var(--muted);padding:7px 14px;border-radius:999px;font-weight:600}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.status{font-size:.8rem;padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
+.status.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:16px}
+.howto summary{padding:12px 16px;font-weight:600;cursor:pointer}
+.howto ol{margin:0;padding:0 18px 14px 36px;display:grid;gap:4px}
+
+/* week navigator */
+.weeknav{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.arrow{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:1.1rem}
+.weektitle{display:flex;flex-direction:column}
+.weektitle .d{font-family:var(--display);font-size:1.35rem;font-weight:700}
+.today-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:.85rem;font-weight:600}
+.strip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px}
+.chip{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:92px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-align:left}
+.chip .who{font-size:.72rem;color:var(--muted)}
+.chip .dt{font-weight:700}
+.chip .dot{font-size:.72rem;font-weight:600}
+.chip.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.chip.bonus{background:var(--good-soft)}
+.dot.done{color:var(--good)} .dot.part{color:var(--warn)} .dot.none{color:var(--muted)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);order:2}
+.main{order:1;display:grid;gap:16px;min-width:0}
+@media (max-width:880px){.grid{grid-template-columns:minmax(0,1fr)}.side{position:static;order:0}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.step{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.stepn{width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:.82rem}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.money-in{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.money-in{grid-template-columns:minmax(0,1fr)}}
+.tile{background:var(--surface-2);border-radius:10px;padding:10px 12px;min-width:0}
+.tile .v{font-family:var(--mono);font-size:1.15rem;font-weight:600}
+.field{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:150px}
+.field span{color:var(--muted)}
+.field input{border:0;background:transparent;width:100%;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;outline:none;min-width:0}
+.field:focus-within{border-color:var(--accent)}
+.field.big{max-width:none}
+
+/* money bar */
+.bar{display:flex;height:22px;border-radius:7px;overflow:hidden;background:var(--seg-left);margin:10px 0 8px}
+.bar div{height:100%;transition:width .25s ease}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* bills */
+.bill{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.bill:first-child{border-top:0}
+.bill input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+.bill .nm{font-weight:600}
+.bill .due{font-size:.8rem;color:var(--muted)}
+.bill.paid .nm{color:var(--muted);text-decoration:line-through}
+.pill{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:1px}
+.pill.card{background:var(--accent-soft);color:var(--accent)}
+.pill.soon{background:var(--warn-soft);color:var(--warn)}
+.empty{padding:14px;border-radius:10px;background:var(--good-soft);color:var(--good);font-weight:600}
+
+/* suggestions panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.panel-head{padding:14px 16px;background:var(--accent);color:var(--accent-ink)}
+.panel-head .label{color:inherit;opacity:.85}
+.panel-head .left{font-family:var(--mono);font-size:2rem;font-weight:600;line-height:1.1}
+.panel-head.short{background:var(--bad);color:#fff}
+.sugg{list-style:none;margin:0;padding:6px 16px 12px;display:grid}
+.sugg li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.sugg li:first-child{border-top:0}
+.sugg .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:700;background:var(--surface-2);color:var(--muted)}
+.sugg li.done .ic{background:var(--good-soft);color:var(--good)}
+.sugg li.warn .ic{background:var(--warn-soft);color:var(--warn)}
+.sugg li.bad .ic{background:var(--bad-soft);color:var(--bad)}
+.sugg b{font-weight:700}
+.sugg .sub{font-size:.82rem;color:var(--muted);margin-top:2px}
+.use{margin-top:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:999px;padding:4px 10px;font-size:.8rem;font-weight:700}
+.use:hover{background:var(--accent-soft)}
+.deadline{margin:0 16px 14px;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:.85rem}
+.deadline.soon{background:var(--warn-soft);color:var(--warn)}
+
+/* spending meter */
+.meter{height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.meter div{height:100%;background:var(--accent);transition:width .25s}
+.meter.over div{background:var(--bad)}
+
+/* goals */
+.goals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.goals{grid-template-columns:minmax(0,1fr)}}
+.goal{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+.goal:first-of-type{border-top:0}
+.goal .gh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.gbar{height:12px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.gbar div{height:100%;background:var(--accent);transition:width .3s}
+.gmeta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.order{counter-reset:o;list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.order li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center}
+.order li::before{counter-increment:o;content:counter(o);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:.8rem}
+.order .st{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.st.now{background:var(--accent);color:var(--accent-ink)} .st.next{background:var(--surface-2);color:var(--muted)} .st.done{background:var(--good-soft);color:var(--good)}
+.bal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.bal-grid label{display:grid;gap:4px;font-size:.82rem;font-weight:600}
+.bal-grid .field{max-width:none}
+.saved{font-size:.78rem;color:var(--muted)}
+.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.set-grid label{display:grid;gap:4px;font-size:.85rem;font-weight:600}
+.set-grid .field{max-width:none}
+.txt{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--surface)}
+textarea.txt{width:100%;min-height:54px;resize:vertical;font:inherit;color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.gate{max-width:420px;margin:8vh auto 0;display:grid;gap:14px}
+.gate .card{display:grid;gap:12px}
+.gate label{display:grid;gap:4px;font-weight:600;font-size:.9rem}
+.gate input.txt{font-size:1rem;padding:10px 12px}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:11px 16px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.err{color:var(--bad);font-size:.88rem;min-height:1.2em}
+.signout{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="gateWrap">
+  <div class="gate" id="login" hidden>
+    <div><h1>Friday Money Planner</h1><div class="muted">Sign in to see this week's plan.</div></div>
+    <form class="card" id="loginForm">
+      <label for="email">Email<input class="txt" id="email" type="email" autocomplete="username" required></label>
+      <label for="pw">Password<input class="txt" id="pw" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="loginBtn">Sign in</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+  <div class="gate" id="setup" hidden>
+    <div><h1>Load your plan</h1><div class="muted">One-time step. Choose the setup file, or paste its text below. It's saved privately to your account.</div></div>
+    <div class="card">
+      <label for="setupFile">Setup file<input id="setupFile" type="file" accept=".json,application/json,text/plain"></label>
+      <label for="setupText">Or paste the setup text<textarea class="txt" id="setupText" style="min-height:140px;font-family:var(--mono);font-size:.8rem"></textarea></label>
+      <button class="btn" id="setupBtn" type="button">Load plan</button>
+      <div class="err" id="setupErr"></div>
+    </div>
+  </div>
+  <div class="gate" id="loading"><div class="muted">Loading…</div></div>
+</div>
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div>
+      <h1>Friday Money Planner</h1>
+      <div class="muted" id="subtitle">One paycheck lands every Friday. Here's what to do with it.</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="status" id="syncStatus">Connecting…</span>
+      <button class="signout" id="signOut" type="button">Sign out</button>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-week" aria-selected="true" data-view="week">This Friday</button>
+        <button class="tab" role="tab" id="tab-goals" aria-selected="false" data-view="goals">Goals</button>
+        <button class="tab" role="tab" id="tab-settings" aria-selected="false" data-view="settings">Settings</button>
+      </div>
+    </div>
+  </header>
+
+  <details class="howto" id="howto">
+    <summary>New here? How this works (30 seconds)</summary>
+    <ol>
+      <li>Every Friday one of our paychecks hits the shared account. They alternate: one week <b class="nmA">Person A</b>, next week <b class="nmB">Person B</b>.</li>
+      <li>Pick the Friday at the top. Type what actually came in.</li>
+      <li>Check off each bill as you pay it. The amounts come out of that week's money.</li>
+      <li>Follow the <b>What to do next</b> box. It changes as you go: how much to leave for next Friday, and and what to pay the <span class="lblMain">everyday card</span>.</li>
+      <li>Everything saves for both of us. Once a month, update balances on the Goals tab.</li>
+    </ol>
+  </details>
+
+  <!-- WEEK VIEW -->
+  <section id="view-week">
+    <div class="weeknav">
+      <button class="arrow" id="prevWk" aria-label="Previous Friday">‹</button>
+      <div class="weektitle"><span class="label" id="wkWho">This week</span><span class="d" id="wkDate">Fri, Nov 13</span></div>
+      <button class="arrow" id="nextWk" aria-label="Next Friday">›</button>
+      <button class="today-btn" id="todayWk">This Friday</button>
+    </div>
+    <div class="strip" id="strip" aria-label="Fridays this month"></div>
+
+    <div class="grid">
+      <aside class="side" aria-label="What to do next">
+        <div class="panel">
+          <div class="panel-head" id="panelHead">
+            <div class="label">Left to assign this week</div>
+            <div class="left" id="leftBig">$0</div>
+            <div id="leftNote" style="font-size:.85rem;opacity:.9">after bills and next week's hold</div>
+          </div>
+          <ol class="sugg" id="sugg"></ol>
+          <div class="deadline" id="deadline"></div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="card">
+          <div class="step"><span class="stepn">1</span><h2>Money in</h2></div>
+          <div class="money-in">
+            <div class="tile"><div class="label">Expected check</div><div class="v" id="expected">$0</div></div>
+            <div class="tile"><div class="label">Actually received</div>
+              <div class="field big" style="margin-top:4px"><span>$</span><input id="received" inputmode="decimal" placeholder="0" aria-label="Actually received"></div></div>
+            <div class="tile"><div class="label">Left from last Friday</div><div class="v" id="carryIn">$0</div><div class="muted" style="font-size:.75rem" id="carryNote"></div></div>
+          </div>
+          <div class="bar" id="bar" aria-hidden="true"></div>
+          <div class="legend">
+            <span><i style="background:var(--seg-paid)"></i>Bills paid</span>
+            <span><i style="background:var(--seg-due)"></i>Bills to pay</span>
+            <span><i style="background:var(--seg-hold)"></i>Leave for next Friday</span>
+            <span><i style="background:var(--seg-capx)"></i><span class="lblMain">Everyday card</span></span>
+            <span><i style="background:var(--seg-fund)"></i>Payoff Fund</span>
+            <span><i style="background:var(--seg-left)"></i>Not assigned yet</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="step"><span class="stepn">2</span><h2>Bills to pay this week</h2><span class="muted num" id="billsSum" style="margin-left:auto"></span></div>
+          <div id="bills"></div>
+        </div>
+
+        <div class="card">
+          <div class="step"><span class="stepn">3</span><h2>Leave for next Friday</h2><span class="num" id="holdAmt" style="margin-left:auto;font-weight:600"></span></div>
+          <div class="muted" id="holdWhy"></div>
+        </div>
+
+        <div class="card">
+          <div class="step"><span class="stepn">4</span><h2>Where the rest went</h2></div>
+          <div class="row"><div><b>Paid to <span class="lblMain">everyday card</span></b><div class="muted" style="font-size:.82rem" id="capxMonth"></div></div>
+            <div class="field"><span>$</span><input id="capx" inputmode="decimal" placeholder="0" aria-label="Paid to everyday card"></div></div>
+          <div class="row"><div><b>Moved to Card Payoff Fund</b><div class="muted" style="font-size:.82rem">Savings. Used for the lump-sum card payments.</div></div>
+            <div class="field"><span>$</span><input id="fund" inputmode="decimal" placeholder="0" aria-label="Moved to Card Payoff Fund"></div></div>
+          <div class="row"><div><b>Personal money added</b><div class="muted" style="font-size:.82rem" id="persMonth"></div></div>
+            <div class="field"><span>$</span><input id="personal" inputmode="decimal" placeholder="0" aria-label="Personal money added to Payoff Fund"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="step"><span class="stepn">5</span><h2><span class="lblMain">Everyday card</span> spending this week</h2><span class="num muted" id="spendTarget" style="margin-left:auto"></span></div>
+          <div class="row" style="border:0;padding-top:0"><div class="muted" style="font-size:.85rem">Everyday spending only (groceries, dinner, shopping). The card's regular bills are already counted.</div>
+            <div class="field"><span>$</span><input id="spend" inputmode="decimal" placeholder="0" aria-label="Everyday card spending this week"></div></div>
+          <div class="meter" id="meter"><div></div></div>
+          <div class="muted" style="font-size:.82rem;margin-top:6px" id="spendNote"></div>
+          <label class="label" for="note" style="display:block;margin-top:14px">Notes for each other</label>
+          <textarea class="txt" id="note" placeholder="e.g. Paid one bill early"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOALS VIEW -->
+  <section id="view-goals" hidden>
+    <div class="goals">
+      <div class="card">
+        <h2 style="margin-bottom:10px">The order we're paying things off</h2>
+        <ol class="order" id="order"></ol>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:4px">Progress</h2>
+        <div class="muted" style="font-size:.85rem;margin-bottom:6px">From the balances below. Update them once a month.</div>
+        <div id="goalBars"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <h2 style="margin-bottom:4px">0% card deadlines</h2>
+        <div class="muted" style="font-size:.85rem;margin-bottom:6px"><span id="btNote"></span></div>
+        <div id="deadlines" style="overflow-x:auto"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h2>Current balances</h2><span class="saved" id="balSaved"></span></div>
+        <div class="muted" style="font-size:.85rem;margin:4px 0 12px">Type today's balance from each app. Leave blank if you haven't checked.</div>
+        <div class="bal-grid" id="balGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS VIEW -->
+  <section id="view-settings" hidden>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h2>Settings</h2><span class="saved" id="setSaved"></span></div>
+      <div class="muted" style="font-size:.85rem;margin:4px 0 14px">Change these if a paycheck or the plan changes. Every week updates.</div>
+      <div class="set-grid" id="setGrid"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Replace plan data</h2>
+      <div class="muted" style="font-size:.85rem;margin:4px 0 10px">Only if Claude gives you a new setup file. Weekly entries you've typed stay.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><input id="replaceFile" type="file" accept=".json,application/json,text/plain"><span class="err" id="replaceErr"></span></div>
+    </div>
+  </section>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+"use strict";
+// ---------- plan data ----------
+const DEFAULTS={nameA:"Person A",nameB:"Person B",payA:0,payB:0,cap:0,capxBills:0,personal:0,personalA:0,personalB:0};
+const FIRST_FRIDAY=new Date(2026,10,13); // first tracked Friday (second person's check)
+const LAST_FRIDAY=new Date(2029,11,28);
+let BILLS=[],CARDS=[],BAL_FIELDS=[],START={},STAGES=[],FIRST_CARRY=0;
+let LABELS={mainCard:"everyday card",mainApp:"card",btCard:"transfer card",btNote:"",weekly:"weekly bills"};
+function applyPlan(p){p=p||{};BILLS=p.bills||[];CARDS=(p.cards||[]).map(c=>({...c,end:new Date(c.end+"T00:00:00")}));
+  BAL_FIELDS=(p.balFields||[]).map(x=>Array.isArray(x)?x:[x.k,x.n]);START=p.start||{};STAGES=p.stages||[];FIRST_CARRY=+p.firstCarry||0;LABELS={...LABELS,...(p.labels||{})};
+  document.querySelectorAll(".lblMain").forEach(e=>{const t=e.textContent;e.textContent=/^[A-Z]/.test(t)?LABELS.mainCard.charAt(0).toUpperCase()+LABELS.mainCard.slice(1):LABELS.mainCard;});
+  const bn=document.getElementById("btNote");if(bn)bn.textContent=LABELS.btNote;}
+
+// ---------- state ----------
+let settings={...DEFAULTS};
+let balances={};
+let weeks={};            // key -> data
+let db=null, canWrite=true;
+const pendingTimers={}, writing={}, queued={};
+let fridays=[];
+for(let d=new Date(FIRST_FRIDAY), b=true; d<=LAST_FRIDAY; d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+7), b=!b){fridays.push({date:d,who:b?"B":"A"});}
+let idx=0;
+
+// ---------- helpers ----------
+const $=id=>document.getElementById(id);
+const fmt=(n,c)=>{if(n==null||isNaN(n))return "$0";const neg=n<0;const v=Math.abs(n);const s=v.toLocaleString("en-US",{minimumFractionDigits:c?2:0,maximumFractionDigits:c?2:0});return (neg?"-$":"$")+s;};
+const num=v=>{if(v===""||v==null)return null;const n=parseFloat(String(v).replace(/[$,\s]/g,""));return isNaN(n)?null:n;};
+const key=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const winOf=d=>{const x=d.getDate();return x<=7?0:x<=14?1:x<=21?2:x<=28?3:4;};
+const WIN_LABEL=["1st–7th","8th–14th","15th–21st","22nd–28th","29th–31st"];
+const sameMonth=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth();
+const dayMs=86400000;
+const today=()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate());};
+function defaultIdx(){const t=today();let i=0;for(let j=0;j<fridays.length;j++){if(fridays[j].date<=t)i=j;}return i;}
+idx=defaultIdx();
+const nm=w=>w==="A"?settings.nameA:settings.nameB;
+const pay=w=>w==="A"?+settings.payA:+settings.payB;
+function dueDate(bill,fri){if(bill.w==="all")return fri;let y=fri.getFullYear(),m=fri.getMonth()+(bill.next?1:0);const last=new Date(y,m+1,0).getDate();return new Date(y,m,Math.min(bill.d,last));}
+function billActive(b){if(!b.bal)return true;const v=balances[b.bal];return !(v!=null&&v!==""&&+v<=0);}
+function billsFor(i){const f=fridays[i];if(!f)return[];const w=winOf(f.date);return BILLS.filter(b=>(b.w===w||b.w==="all")&&billActive(b));}
+function billTotal(i){return billsFor(i).reduce((s,b)=>s+b.a,0);}
+function holdFor(i,depth){depth=depth||0;const n=fridays[i+1];if(!n||depth>6)return 0;const need=billTotal(i+1)+holdFor(i+1,depth+1)-pay(n.who);return need>0?Math.ceil(need/10)*10:0;}
+const wk=i=>weeks[key(fridays[i].date)]||{};
+function monthSum(i,field){const d=fridays[i].date;let s=0;fridays.forEach((f,j)=>{if(sameMonth(f.date,d)){const v=num((weeks[key(f.date)]||{})[field]);if(v)s+=v;}});return s;}
+function monthSumExcept(i,field){const d=fridays[i].date;let s=0;fridays.forEach((f,j)=>{if(j!==i&&sameMonth(f.date,d)){const v=num((weeks[key(f.date)]||{})[field]);if(v)s+=v;}});return s;}
+
+function monthSumWho(i,field,who){const d=fridays[i].date;let s=0;fridays.forEach(f=>{if(f.who===who&&sameMonth(f.date,d)){const v=num((weeks[key(f.date)]||{})[field]);if(v)s+=v;}});return s;}
+function compute(i){
+  const f=fridays[i], w=wk(i), bills=billsFor(i), paid=w.paid||{};
+  const expected=pay(f.who);
+  const rec=num(w.received);
+  const received=rec==null?expected:rec;
+  const carryIn=i>0?holdFor(i-1):FIRST_CARRY;
+  const available=received+carryIn;
+  let billsPaid=0,billsDue=0,unpaid=[];
+  bills.forEach(b=>{const p=paid[b.id];if(p!=null&&p!==false){billsPaid+=(typeof p==="number"?p:b.a);}else{billsDue+=b.a;unpaid.push(b);}});
+  const hold=holdFor(i);
+  const capx=num(w.capx)||0, fund=num(w.fund)||0, personal=num(w.personal)||0;
+  const left=available-billsPaid-billsDue-hold-capx-fund;
+  return {f,w,bills,paid,expected,rec,received,carryIn,available,billsPaid,billsDue,unpaid,hold,capx,fund,personal,left};
+}
+
+// ---------- rendering ----------
+function setVal(id,v){const el=$(id);if(document.activeElement===el)return;el.value=(v==null||v==="")?"":v;}
+function renderStrip(){
+  const d=fridays[idx].date, s=$("strip"); s.innerHTML="";
+  fridays.forEach((f,j)=>{ if(!sameMonth(f.date,d))return;
+    const c=compute(j); const tot=c.bills.length, done=tot-c.unpaid.length; const bonus=winOf(f.date)===4;
+    const b=document.createElement("button"); b.className="chip"+(j===idx?" sel":"")+(bonus?" bonus":"");
+    const st=bonus?'<span class="dot done">Bonus Friday</span>':(tot===0?'<span class="dot none">No bills</span>':(done===tot?'<span class="dot done">✓ All paid</span>':(done>0?`<span class="dot part">${done} of ${tot} paid</span>`:`<span class="dot none">${tot} bills</span>`)));
+    b.innerHTML=`<span class="who">${esc(nm(f.who))}</span><span class="dt">${f.date.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>${st}`;
+    b.onclick=()=>{idx=j;renderWeek(true);};
+    s.appendChild(b);
+  });
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function renderBills(c){
+  const box=$("bills"); box.innerHTML="";
+  if(winOf(c.f.date)===4){const n=document.createElement("div");n.className="empty";n.style.marginBottom="6px";n.textContent=`Bonus Friday. Only the ${LABELS.weekly} come out this week.`;box.appendChild(n);}
+  if(!c.bills.length){box.innerHTML='<div class="empty">No bills this week.</div>';return;}
+  c.bills.forEach(b=>{
+    const p=c.paid[b.id]; const isPaid=p!=null&&p!==false; const due=dueDate(b,c.f.date);
+    const daysTo=Math.round((due-today())/dayMs);
+    const row=document.createElement("div"); row.className="bill"+(isPaid?" paid":"");
+    const cid="b_"+b.id;
+    row.innerHTML=`<input type="checkbox" id="${cid}" ${isPaid?"checked":""} ${canWrite?"":"disabled"} aria-label="Paid ${esc(b.n)}">
+      <label for="${cid}" style="min-width:0;cursor:pointer"><div class="nm">${esc(b.n)}${b.card?'<span class="pill card">0% card min</span>':""}${b.w==="all"?'<span class="pill card">every Friday</span>':""}${!isPaid&&daysTo>=0&&daysTo<=3?'<span class="pill soon">due soon</span>':""}</div>
+      <div class="due">Due ${due.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div></label>
+      <div class="field" style="max-width:120px"><span>$</span><input id="${cid}_amt" inputmode="decimal" value="${isPaid&&typeof p==="number"?p:b.a}" aria-label="${esc(b.n)} amount" ${canWrite?"":"disabled"}></div>`;
+    const cb=row.querySelector("input[type=checkbox]"), amt=row.querySelector(".field input");
+    cb.onchange=()=>{const w=ensure(); w.paid={...(w.paid||{})}; if(cb.checked){w.paid[b.id]=num(amt.value)??b.a;}else{delete w.paid[b.id];} save(true); renderWeek();};
+    amt.oninput=()=>{const w=ensure(); if(w.paid&&w.paid[b.id]!=null){w.paid={...w.paid,[b.id]:num(amt.value)??0}; save(); refresh();}};
+    box.appendChild(row);
+  });
+}
+
+function renderWeek(full){
+  const c=compute(idx), f=c.f;
+  $("wkDate").textContent=f.date.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+  $("wkWho").textContent=nm(f.who)+"'s check · Bill window "+WIN_LABEL[winOf(f.date)];
+  $("prevWk").disabled=idx===0; $("nextWk").disabled=idx===fridays.length-1;
+  $("expected").textContent=fmt(c.expected);
+  setVal("received",c.rec); setVal("capx",c.w.capx); setVal("fund",c.w.fund); setVal("personal",c.w.personal); setVal("spend",c.w.spend); setVal("note",c.w.note||"");
+  ["received","capx","fund","personal","spend","note"].forEach(id=>$(id).disabled=!canWrite);
+  renderBills(c); renderStrip(); refresh();
+}
+
+function refresh(){
+  const c=compute(idx), f=c.f;
+  $("carryIn").textContent=fmt(c.carryIn);
+  $("carryNote").textContent=c.carryIn>0?"Held back from the Friday before":"Nothing held for this week";
+  // bar
+  const segs=[["paid",c.billsPaid],["due",c.billsDue],["hold",c.hold],["capx",c.capx],["fund",c.fund]];
+  const total=Math.max(c.available, segs.reduce((s,x)=>s+x[1],0), 1);
+  $("bar").innerHTML=segs.map(([k,v])=>v>0?`<div style="width:${(v/total*100).toFixed(2)}%;background:var(--seg-${k})" title="${k}: ${fmt(v)}"></div>`:"").join("");
+  $("billsSum").textContent=c.bills.length?`${fmt(c.billsPaid+c.billsDue,true)} total · ${fmt(c.billsDue,true)} left`:"";
+  // hold
+  const nxt=fridays[idx+1];
+  $("holdAmt").textContent=fmt(c.hold);
+  if(nxt){const nb=billTotal(idx+1), np=pay(nxt.who);
+    $("holdWhy").innerHTML=c.hold>0?`Next Friday (${nxt.date.toLocaleDateString("en-US",{month:"short",day:"numeric"})}) is ${esc(nm(nxt.who))}'s ${fmt(np)} check, but ${fmt(nb)} of bills are due from it${holdFor(idx+1)>0?`, and it has to pass ${fmt(holdFor(idx+1))} on to the Friday after`:""}. Leave <b>${fmt(c.hold)}</b> in the shared account so those get paid.`
+      :`Next Friday (${nxt.date.toLocaleDateString("en-US",{month:"short",day:"numeric"})}), ${esc(nm(nxt.who))}'s ${fmt(np)} check covers its ${fmt(nb)} of bills. Nothing to leave.`;}
+  // capx month
+  const capPaidMonth=monthSum(idx,"capx");
+  $("capxMonth").textContent=`${fmt(capPaidMonth)} paid this month · cap is ${fmt(settings.cap)}/mo`;
+  const persMonth=monthSum(idx,"personal");
+  $("persMonth").textContent=`${fmt(persMonth)} of ${fmt((+settings.personalA||0)+(+settings.personalB||0))} this month (${settings.nameA} ${fmt(settings.personalA)}, ${settings.nameB} ${fmt(settings.personalB)}). Goes toward the ${LABELS.mainCard}.`;
+  // spending
+  const target=(settings.cap-settings.capxBills)*12/52; const sp=num(c.w.spend);
+  $("spendTarget").textContent="Target "+fmt(target)+"/wk";
+  const pct=sp?Math.min(100,sp/target*100):0; $("meter").className="meter"+(sp>target?" over":""); $("meter").firstElementChild.style.width=pct+"%";
+  $("spendNote").textContent=sp==null?`Type this week's total from the ${LABELS.mainApp} app.`:(sp<=target?`${fmt(target-sp)} under the weekly target.`:`${fmt(sp-target)} over the weekly target. Try to make it up next week.`);
+  renderSuggestions(c);
+}
+
+function renderSuggestions(c){
+  const f=c.f, items=[], bonus=winOf(f.date)===4;
+  const head=$("panelHead");
+  $("leftBig").textContent=fmt(c.left);
+  head.classList.toggle("short",c.left<-0.5);
+  $("leftNote").textContent=c.left<-0.5?"short this week":"after bills and next week's hold";
+  if(bonus)items.push({cls:"done",ic:"★",h:`<b>Bonus Friday.</b> Only the ${esc(LABELS.weekly)} come out of this check.`,sub:"Pay those, leave the hold, then put the rest where the next steps say."});
+  if(c.rec==null)items.push({cls:"warn",ic:"!",h:`Type what actually came in. Using the expected ${fmt(c.expected)} for now.`});
+  // bills
+  if(c.bills.length){
+    if(c.unpaid.length){const soon=[...c.unpaid].sort((a,b)=>dueDate(a,f.date)-dueDate(b,f.date));
+      items.push({cls:"",ic:"1",h:`<b>Pay ${c.unpaid.length} bill${c.unpaid.length>1?"s":""}: ${fmt(c.billsDue,true)}</b>`,sub:soon.slice(0,4).map(b=>`${esc(b.n)} by ${dueDate(b,f.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}`).join(" · ")+(soon.length>4?` · +${soon.length-4} more`:"")});}
+    else items.push({cls:"done",ic:"✓",h:`<b>All ${c.bills.length} bills paid</b> (${fmt(c.billsPaid,true)}).`});
+  }
+  // hold
+  items.push(c.hold>0?{cls:"",ic:"2",h:`<b>Leave ${fmt(c.hold)}</b> in the account for next Friday's bills.`,sub:"Already taken out of the number above."}
+                     :{cls:"done",ic:"✓",h:"Nothing to leave for next Friday."});
+  // capx
+  let pool=c.left+c.capx+c.fund; // money available for capx + fund (before what's entered)
+  const carry=num(balances.capxCarry)||0; const MC=esc(LABELS.mainCard);
+  const capNeed=Math.max(0,settings.cap-monthSumExcept(idx,"capx"));
+  const capTarget=bonus&&carry<=0?0:capNeed+carry;
+  const capSuggest=Math.max(0,Math.min(Math.max(pool,0),capTarget));
+  if(c.capx>0)items.push({cls:"done",ic:"✓",h:`<b>Paid ${fmt(c.capx)} to the ${MC}.</b>`,sub:carry>0?`Carried balance still ${fmt(carry)}. Update it on Goals after the statement.`:""});
+  else if(capSuggest>0)items.push({cls:"",ic:"3",h:`<b>Pay ${fmt(capSuggest)} to the ${MC}.</b>`,sub:(carry>0?`Clearing the ${fmt(carry)} carried balance comes first. `:"")+`This month: ${fmt(monthSumExcept(idx,"capx"))} paid of the ${fmt(settings.cap)} cap. Statement due the 15th.`,use:["capx",capSuggest]});
+  // personal
+  const pm=f.who==="A"?(+settings.personalA||0):(+settings.personalB||0);
+  const persLeft=Math.max(0,pm-monthSumWho(idx,"personal",f.who));
+  if(persLeft>0&&!(num(c.w.personal)>0))items.push({cls:"",ic:"+",h:`<b>Add ${fmt(Math.min(persLeft,pm/2))} from ${esc(nm(f.who))}'s personal money</b> toward the ${MC}.`,sub:`${esc(nm(f.who))}'s goal is ${fmt(pm)} a month. ${fmt(persLeft)} still to go.`});
+  // fund
+  const afterCap=pool-(c.capx>0?c.capx:capSuggest);
+  const fundSuggest=Math.max(0,afterCap-c.fund);
+  if(c.fund>0&&fundSuggest<1)items.push({cls:"done",ic:"✓",h:`<b>Moved ${fmt(c.fund)} to the Card Payoff Fund.</b>`});
+  else if(fundSuggest>=1)items.push({cls:"",ic:"4",h:`<b>Move ${fmt(fundSuggest)} to the Card Payoff Fund.</b>`,sub:"Keep it in savings until the next card deadline.",use:["fund",c.fund+fundSuggest]});
+  if(c.left<-0.5)items.push({cls:"bad",ic:"!",h:`<b>${fmt(-c.left)} short.</b>`,sub:`Pay the ${MC} less this week. Don't skip a bill or the hold.`});
+  else if(c.left<1&&c.bills.length&&!c.unpaid.length)items.push({cls:"done",ic:"✓",h:"<b>Every dollar has a job.</b> You're done for this Friday."});
+  const ul=$("sugg"); ul.innerHTML="";
+  items.forEach(it=>{const li=document.createElement("li");li.className=it.cls;
+    li.innerHTML=`<span class="ic">${it.ic}</span><div>${it.h}${it.sub?`<div class="sub">${it.sub}</div>`:""}</div>`;
+    if(it.use&&canWrite){const b=document.createElement("button");b.className="use";b.textContent=`Fill in ${fmt(it.use[1])}`;b.onclick=()=>{const w=ensure();w[it.use[0]]=Math.round(it.use[1]*100)/100;save(true);renderWeek();};li.lastElementChild.appendChild(b);}
+    ul.appendChild(li);});
+  // deadline
+  const dl=$("deadline"), up=CARDS.filter(k=>k.end>=f.date&&!(balances[k.k]!=null&&balances[k.k]!==""&&+balances[k.k]<=0)).sort((a,b)=>a.end-b.end)[0];
+  if(up){const days=Math.round((up.end-today())/dayMs); const by=new Date(up.end.getTime()-21*dayMs);
+    dl.className="deadline"+(days<=45?" soon":"");
+    dl.innerHTML=`<b>Next 0% deadline: ${esc(up.n)}</b>, ${up.end.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} (${days} days).<br>${up.xfer?`Plan: start moving ~${fmt(up.xfer)} to the ${esc(LABELS.btCard)} by ${by.toLocaleDateString("en-US",{month:"short",day:"numeric"})}. `:""}${up.note||""}`;}
+  else{dl.className="deadline";dl.innerHTML="<b>All 0% card deadlines are behind you.</b>";}
+}
+
+// ---------- goals ----------
+function renderGoals(){
+  const b=balances; const v=k=>{const x=num(b[k]);return x;};
+  const cardKeys=CARDS.map(k=>k.k).concat(["bt"]);
+  const anyCard=cardKeys.some(k=>v(k)!=null);
+  const cardNow=anyCard?cardKeys.reduce((s,k)=>s+(v(k)||0),0):null;
+  const fundMoved=Object.values(weeks).reduce((s,w)=>s+(num(w.fund)||0),0);
+  const stage=STAGES.map(g=>{const cur=g.key==="cards"?cardNow:(v(g.key)??(START[g.key]??null));
+    return {n:g.n,goal:g.goal,start:g.start==null?null:+g.start,cur,done:g.start!=null&&cur!=null&&cur<=0};});
+  let nowSet=false;
+  $("order").innerHTML=stage.map(s=>{let st;if(s.done)st='<span class="st done">Done</span>';else if(!nowSet){nowSet=true;st='<span class="st now">Now</span>';}else st='<span class="st next">Later</span>';
+    return `<li><div><b>${esc(s.n)}</b><div class="muted" style="font-size:.8rem">Goal: ${s.goal}</div></div>${st}</li>`;}).join("");
+  $("goalBars").innerHTML=stage.map(s=>{
+    if(s.cur==null||s.start==null)return `<div class="goal"><div class="gh"><b>${esc(s.n)}</b><span class="muted" style="font-size:.82rem">${s.start==null?"Add a balance below":"Add a balance below"}</span></div><div class="gbar"><div style="width:0"></div></div></div>`;
+    const p=s.build?Math.max(0,Math.min(1,(s.cur-s.start)/(s.target-s.start))):Math.max(0,Math.min(1,(s.start-s.cur)/s.start));
+    return `<div class="goal"><div class="gh"><b>${esc(s.n)}</b><span class="num">${Math.round(p*100)}%</span></div><div class="gbar"><div style="width:${p*100}%"></div></div>
+      <div class="gmeta"><span>${s.build?"Now "+fmt(s.cur)+" of "+fmt(s.target):fmt(s.cur)+" left of "+fmt(s.start)}</span><span>Goal ${s.goal}</span></div></div>`;}).join("")+
+    `<div class="goal"><div class="gh"><b>Moved to Card Payoff Fund (all weeks)</b><span class="num">${fmt(fundMoved)}</span></div></div>`;
+  // deadlines table
+  const rows=CARDS.map(k=>{const cur=v(k.k);const days=Math.round((k.end-today())/dayMs);const by=new Date(k.end.getTime()-21*dayMs);
+    const done=cur!=null&&cur<=0; const status=done?'<span class="st done">Paid off</span>':(days<0?'<span class="st next">0% ended</span>':(days<=45?`<span class="pill soon" style="margin:0">${days} days</span>`:`<span class="muted">${days} days</span>`));
+    return `<tr><td><b>${esc(k.n)}</b></td><td class="num">${cur==null?fmt(k.start):fmt(cur)}</td><td>${k.end.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</td><td>${status}</td><td class="num">${k.xfer?by.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):""}</td><td class="num">${k.xfer?"~"+fmt(k.xfer):"Won't fit"}${k.note&&k.xfer?" (part)":""}</td></tr>`;}).join("");
+  $("deadlines").innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:620px;font-size:.9rem"><thead><tr class="label" style="text-align:left"><th style="padding:6px 8px 6px 0">Card</th><th>Balance</th><th>0% ends</th><th>Time left</th><th>Start transfer by</th><th>Move to ${esc(LABELS.btCard)}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("deadlines").querySelectorAll("td").forEach(td=>{td.style.padding="8px 8px 8px 0";td.style.borderTop="1px solid var(--line)";});
+}
+function buildBalances(){
+  const g=$("balGrid"); g.innerHTML="";
+  BAL_FIELDS.forEach(([k,label])=>{const l=document.createElement("label");l.innerHTML=`${esc(label)}<div class="field"><span>$</span><input id="bal_${k}" inputmode="decimal" placeholder="—" ${canWrite?"":"disabled"}></div>`;
+    g.appendChild(l); const inp=l.querySelector("input"); inp.oninput=()=>{balances[k]=num(inp.value); saveDoc("config/balances",()=>({...balances,updatedAt:new Date().toISOString()}),$("balSaved")); renderGoals();};});
+}
+function fillBalances(){BAL_FIELDS.forEach(([k])=>setVal("bal_"+k,balances[k]));const u=balances.updatedAt;$("balSaved").textContent=u?"Last updated "+new Date(u).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";}
+const SET_FIELDS=[["nameA","First paycheck person's name","text"],["nameB","Second paycheck person's name","text"],["payA","Person A deposit to shared (every 2 wks)","money"],["payB","Person B deposit to shared (every 2 wks)","money"],["cap","Everyday card monthly cap","money"],["capxBills","Bills charged to the everyday card per month","money"],["personalA","Person A personal money toward debt per month","money"],["personalB","Person B personal money toward debt per month","money"]];
+function buildSettings(){
+  const g=$("setGrid"); g.innerHTML="";
+  SET_FIELDS.forEach(([k,label,t])=>{const l=document.createElement("label");
+    l.innerHTML=t==="text"?`${esc(label)}<input class="txt" id="set_${k}" ${canWrite?"":"disabled"}>`:`${esc(label)}<div class="field"><span>$</span><input id="set_${k}" inputmode="decimal" ${canWrite?"":"disabled"}></div>`;
+    g.appendChild(l); const inp=l.querySelector("input");
+    inp.oninput=()=>{settings[k]=t==="text"?(inp.value||DEFAULTS[k]):(num(inp.value)??DEFAULTS[k]); saveDoc("config/settings",()=>({...settings}),$("setSaved")); applyNames(); renderWeek();};});
+  // relabel pay fields with names
+}
+function fillSettings(){SET_FIELDS.forEach(([k])=>setVal("set_"+k,settings[k]));}
+function applyNames(){document.querySelectorAll(".nmA").forEach(e=>e.textContent=settings.nameA);document.querySelectorAll(".nmB").forEach(e=>e.textContent=settings.nameB);}
+
+// ---------- saving ----------
+function ensure(){const k=key(fridays[idx].date);if(!weeks[k])weeks[k]={};weeks[k]={...weeks[k]};return weeks[k];}
+function save(now){const k=key(fridays[idx].date);saveDoc("weeks/"+k,()=>({...weeks[k],updatedAt:new Date().toISOString()}),null,now);}
+function saveDoc(path,getData,savedEl,now){
+  if(!db||!canWrite)return;
+  clearTimeout(pendingTimers[path]);
+  pendingTimers[path]=setTimeout(()=>flush(path,getData,savedEl),now?50:700);
+}
+async function flush(path,getData,savedEl){
+  delete pendingTimers[path];
+  if(writing[path]){queued[path]=[getData,savedEl];return;}
+  writing[path]=true; setStatus("Saving…");
+  try{await db.doc(path).set(getData()); setStatus("Saved for both of you"); if(savedEl)savedEl.textContent="Saved";}
+  catch(e){ if(e&&e.code==="permission-denied"){canWrite=false;setStatus("View only: you can look but not save",true);renderAll();}
+    else setStatus("Couldn't save. Check your connection.",true);}
+  writing[path]=false;
+  if(queued[path]){const [g,s]=queued[path];delete queued[path];flush(path,g,s);}
+}
+function setStatus(t,warn){const s=$("syncStatus");s.textContent=t;s.classList.toggle("warn",!!warn);}
+const busy=p=>!!pendingTimers[p]||!!writing[p];
+
+// ---------- views ----------
+function show(view){["week","goals","settings"].forEach(v=>{$("view-"+v).hidden=v!==view;$("tab-"+v).setAttribute("aria-selected",String(v===view));});
+  if(view==="goals"){renderGoals();fillBalances();} if(view==="settings")fillSettings();}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>show(t.dataset.view));
+$("prevWk").onclick=()=>{if(idx>0){idx--;renderWeek(true);}};
+$("nextWk").onclick=()=>{if(idx<fridays.length-1){idx++;renderWeek(true);}};
+$("todayWk").onclick=()=>{idx=defaultIdx();renderWeek(true);};
+[["received"],["capx"],["fund"],["personal"],["spend"]].forEach(([id])=>{$(id).oninput=()=>{const w=ensure();const v=num($(id).value);if(v==null)delete w[id];else w[id]=v;save();refresh();renderStripLite();};});
+$("note").oninput=()=>{const w=ensure();w.note=$("note").value;save();};
+let stripT;function renderStripLite(){clearTimeout(stripT);stripT=setTimeout(renderStrip,300);}
+function renderAll(){applyNames();buildBalances();buildSettings();renderWeek(true);if(!$("view-goals").hidden){renderGoals();fillBalances();}if(!$("view-settings").hidden)fillSettings();}
+try{if(!localStorage.getItem("fmp_seen_howto"))$("howto").open=true;localStorage.setItem("fmp_seen_howto","1");}catch(e){$("howto").open=true;}
+
+// ---------- firebase ----------
+const firebaseConfig={
+  apiKey:"AIzaSyAaw-wdoMeYzMBWt7lKOQIgpJH6ywLWldI",
+  authDomain:"finance-2382b.firebaseapp.com",
+  projectId:"finance-2382b",
+  storageBucket:"finance-2382b.firebasestorage.app",
+  messagingSenderId:"219496956363",
+  appId:"1:219496956363:web:a9b42071636092590a364e"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), fs=firebase.firestore();
+let unsubs=[];
+function gate(which){["login","setup","loading"].forEach(id=>$(id).hidden=id!==which);$("gateWrap").hidden=!which;$("app").hidden=!!which;}
+$("loginForm").onsubmit=async e=>{e.preventDefault();$("loginErr").textContent="";$("loginBtn").disabled=true;
+  try{await auth.signInWithEmailAndPassword($("email").value.trim(),$("pw").value);}
+  catch(err){$("loginErr").textContent=(err&&(err.code==="auth/invalid-credential"||err.code==="auth/wrong-password"||err.code==="auth/user-not-found"))?"Email or password didn't match. Try again.":"Couldn't sign in: "+(err&&err.message||"unknown error");}
+  $("loginBtn").disabled=false;};
+$("signOut").onclick=()=>auth.signOut();
+async function importSetup(text,errEl,keepWeeks){
+  let data;try{data=JSON.parse(text);}catch(e){errEl.textContent="That doesn't look like the setup file. Check you copied all of it.";return false;}
+  if(!data.plan||!data.plan.bills){errEl.textContent="Setup file is missing the plan section.";return false;}
+  try{const batch=fs.batch();
+    batch.set(fs.doc("config/plan"),data.plan);
+    if(data.settings)batch.set(fs.doc("config/settings"),data.settings,{merge:true});
+    if(data.balances)batch.set(fs.doc("config/balances"),data.balances,{merge:true});
+    if(data.weeks&&!keepWeeks)Object.entries(data.weeks).forEach(([k,v])=>batch.set(fs.doc("weeks/"+k),v,{merge:true}));
+    await batch.commit();return true;}
+  catch(e){errEl.textContent=e&&e.code==="permission-denied"?"This account isn't allowed to save. Check the Firestore rules emails.":"Couldn't save: "+(e&&e.message||"unknown error");return false;}}
+$("setupFile").onchange=async()=>{const f=$("setupFile").files[0];if(f)$("setupText").value=await f.text();};
+$("setupBtn").onclick=async()=>{$("setupErr").textContent="";$("setupBtn").disabled=true;await importSetup($("setupText").value,$("setupErr"),false);$("setupBtn").disabled=false;};
+$("replaceFile").onchange=async()=>{const f=$("replaceFile").files[0];if(!f)return;$("replaceErr").textContent="";if(await importSetup(await f.text(),$("replaceErr"),true))$("replaceErr").textContent="Plan updated.";};
+
+auth.onAuthStateChanged(user=>{
+  unsubs.forEach(u=>{try{u();}catch(e){}});unsubs=[];
+  if(!user){db=null;gate("login");return;}
+  gate("loading"); db=fs; canWrite=true;
+  let planLoaded=false;
+  unsubs.push(fs.doc("config/plan").onSnapshot(sn=>{
+    if(!sn.exists){gate("setup");return;}
+    applyPlan(sn.data());
+    if(!planLoaded){planLoaded=true;idx=defaultIdx();gate(null);renderAll();}else renderAll();
+  },err=>{gate("login");$("loginErr").textContent=err&&err.code==="permission-denied"?"This account doesn't have access. Check the emails in the Firestore rules.":"Couldn't load data.";}));
+  unsubs.push(fs.collection("weeks").onSnapshot(snap=>{
+    snap.docs.forEach(d=>{const p="weeks/"+d.id; if(busy(p))return; weeks[d.id]={...d.data()};});
+    snap.docChanges().forEach(ch=>{if(ch.type==="removed"&&!busy("weeks/"+ch.doc.id))delete weeks[ch.doc.id];});
+    if(!snap.metadata.fromCache&&!Object.keys(pendingTimers).length)setStatus("Saved for both of you");
+    if(!planLoaded)return;
+    const ae=document.activeElement;
+    if(ae&&ae.closest&&ae.closest("#bills"))refresh(); else renderWeek();
+    if(!$("view-goals").hidden)renderGoals();
+  },()=>setStatus("Saved data unavailable right now.",true)));
+  unsubs.push(fs.doc("config/settings").onSnapshot(sn=>{if(busy("config/settings"))return;if(sn.exists)settings={...DEFAULTS,...sn.data()};if(!planLoaded)return;applyNames();renderWeek();if(!$("view-settings").hidden)fillSettings();},()=>{}));
+  unsubs.push(fs.doc("config/balances").onSnapshot(sn=>{if(busy("config/balances"))return;if(sn.exists)balances={...sn.data()};if(!planLoaded)return;renderWeek(true);if(!$("view-goals").hidden){renderGoals();fillBalances();}},()=>{}));
+});
+})();
+</script>
+</body>
+</html>
